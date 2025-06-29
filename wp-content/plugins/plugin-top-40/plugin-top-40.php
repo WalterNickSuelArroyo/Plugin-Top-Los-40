@@ -3,7 +3,7 @@
 Plugin Name: Plugin Top 40
 Plugin URI: www.prueba.com
 Description: Plugin para realizar votaciones y ordenarlos en un top 40
-Version: 0.0.5
+Version: 0.0.6
 */
 
 function Activar()
@@ -78,7 +78,6 @@ add_action('wp_ajax_top40_guardar_orden', function () {
     wp_send_json_success('Orden actualizado');
 });
 
-
 function crearMenu()
 {
     add_menu_page(
@@ -116,6 +115,10 @@ add_shortcode('top40', 'mostrarTop40');
 
 function mostrarTop40($atts)
 {
+    // Desactivar caché temporal
+    nocache_headers();
+    wp_suspend_cache_addition(true);
+
     global $wpdb;
     $tabla_canciones = $wpdb->prefix . 'top40_canciones';
     $tabla_votos = $wpdb->prefix . 'top40_votos';
@@ -126,6 +129,8 @@ function mostrarTop40($atts)
     if (!$lista_id) return "<p>No se ha especificado una lista válida.</p>";
 
     $ip = $_SERVER['REMOTE_ADDR'];
+
+    echo "<p>Tu IP detectada: " . $_SERVER['REMOTE_ADDR'] . "</p>";
 
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['votar_id'])) {
         $id = intval($_POST['votar_id']);
@@ -147,6 +152,7 @@ function mostrarTop40($atts)
         }
     }
 
+    // Consulta actualizada siempre
     $canciones = $wpdb->get_results(
         $wpdb->prepare(
             "SELECT * FROM $tabla_canciones WHERE lista_id = %d ORDER BY votos DESC LIMIT 40",
@@ -157,6 +163,14 @@ function mostrarTop40($atts)
     ob_start();
 ?>
 <style>
+.top40-mensaje {
+    background: #dff0d8;
+    padding: 10px;
+    border-left: 5px solid #3c763d;
+    margin: 10px auto;
+    width: 80%;
+}
+
 .top40-contenedor {
     width: 80%;
     margin: auto;
@@ -316,19 +330,6 @@ function mostrarTop40($atts)
     display: block;
 }
 </style>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    document.querySelectorAll('.top40-arrow').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const extra = this.closest('.top40-item').querySelector('.top40-extra');
-            extra.style.display = extra.style.display === 'flex' ? 'none' : 'flex';
-            this.classList.toggle('rotado');
-        });
-    });
-});
-</script>
-
 <div class="top40-contenedor">
     <h2>🎵 Top 40 Musical</h2>
     <?php $pos = 1; ?>
@@ -383,22 +384,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 </svg>
             </div>
         </div>
-        <div class="top40-extra">
+        <div class="top40-extra" style="display:none;">
             <div class="top40-estadisticas">
                 <div class="top40-estadistica">
                     <strong>Semanas en listas</strong>
-                    <img src="<?= plugin_dir_url(__FILE__) . 'admin/img/Calendar.svg' ?>" alt="icono"
-                        class="top40-icono">
                     <span><?= intval($semanas) ?></span>
                 </div>
                 <div class="top40-estadistica">
                     <strong>Mejor posición</strong>
-                    <img src="<?= plugin_dir_url(__FILE__) . 'admin/img/Trophy.svg' ?>" alt="icono" class="top40-icono">
                     <span><?= $mejor_posicion ? intval($mejor_posicion) : '-' ?></span>
                 </div>
                 <div class="top40-estadistica">
                     <strong>Anterior posición</strong>
-                    <img src="<?= plugin_dir_url(__FILE__) . 'admin/img/Arrow.svg' ?>" alt="icono" class="top40-icono">
                     <span><?= $anterior_posicion ? intval($anterior_posicion) : '-' ?></span>
                 </div>
             </div>
@@ -412,10 +409,20 @@ document.addEventListener('DOMContentLoaded', function() {
     <?php $pos++; ?>
     <?php endforeach; ?>
 </div>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.top40-arrow').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const extra = this.closest('.top40-item').querySelector('.top40-extra');
+            extra.style.display = extra.style.display === 'flex' ? 'none' : 'flex';
+            this.classList.toggle('rotado');
+        });
+    });
+});
+</script>
 <?php
     return ob_get_clean();
 }
-
 
 function top40_registrar_semana($lista_id)
 {
@@ -446,3 +453,4 @@ function top40_registrar_semana($lista_id)
 
     echo "<div class='updated'><p>Se registraron las posiciones de esta semana.</p></div>";
 }
+?>

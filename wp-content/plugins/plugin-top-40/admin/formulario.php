@@ -1,12 +1,13 @@
 <?php
 wp_enqueue_media();
-wp_enqueue_script('jquery-ui-sortable'); // Necesario para draggable
+wp_enqueue_script('jquery-ui-sortable'); // Necesario para arrastrar orden
 
 global $wpdb;
 $tabla_canciones = $wpdb->prefix . 'top40_canciones';
 $tabla_listas = $wpdb->prefix . 'top40_listas';
 $tabla_ranking = $wpdb->prefix . 'top40_ranking';
 
+// Validar lista
 if (!isset($_GET['id']) || !is_numeric($_GET['id'])) {
     echo "<div class='error'><p>No se ha especificado una lista válida.</p></div>";
     return;
@@ -180,6 +181,7 @@ if (isset($_GET['editar']) && is_numeric($_GET['editar'])) {
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Selector de imagen
     const btn = document.getElementById('seleccionar_cover');
     const input = document.getElementById('cover_url');
     btn.addEventListener('click', function() {
@@ -200,6 +202,7 @@ document.addEventListener('DOMContentLoaded', function() {
         frame.open();
     });
 
+    // Ordenar canciones drag & drop
     jQuery("#sortable-canciones tbody").sortable({
         handle: ".handle",
         update: function(event, ui) {

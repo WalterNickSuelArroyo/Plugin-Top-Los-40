@@ -25,7 +25,7 @@ $listas = $wpdb->get_results("SELECT * FROM $tabla_listas");
 ?>
 
 <div class="wrap">
-    <h1 class="wp-heading-inline"><?= get_admin_page_title(); ?></h1>
+    <h1 class="wp-heading-inline"><?= esc_html(get_admin_page_title()); ?></h1>
 
     <form method="POST" style="margin-top: 20px; margin-bottom: 30px;">
         <input type="text" name="nombre_lista" placeholder="Nombre de la nueva lista" required
@@ -38,6 +38,7 @@ $listas = $wpdb->get_results("SELECT * FROM $tabla_listas");
         <thead>
             <tr>
                 <th>Nombre de la Lista</th>
+                <th>Shortcode</th>
                 <th>Acciones</th>
             </tr>
         </thead>
@@ -46,15 +47,20 @@ $listas = $wpdb->get_results("SELECT * FROM $tabla_listas");
             <tr>
                 <td><?= esc_html($lista->nombre); ?></td>
                 <td>
-                    <a href="<?= admin_url('admin.php?page=top40_lista&id=' . $lista->id); ?>"
-                        class="button button-secondary">Editar Lista</a>
+                    <code>[top40 lista="<?= intval($lista->id); ?>"]</code>
+                </td>
+                <td>
+                    <a href="<?= esc_url(admin_url('admin.php?page=top40_lista&id=' . $lista->id)); ?>"
+                        class="button button-secondary">Ver/Editar Lista</a>
 
-                    <!-- <a href="<?= admin_url('admin.php?page=top40_lista&id=' . $lista->id . '&registrar_semana=1'); ?>"
-                        class="button">Registrar Semana</a> -->
+                    <!-- Si quieres registrar semana manual, descomenta este enlace:
+                        <a href="<?= esc_url(admin_url('admin.php?page=top40_lista&id=' . $lista->id . '&registrar_semana=1')); ?>"
+                           class="button">Registrar Semana</a>
+                        -->
 
                     <form method="POST" style="display:inline;"
                         onsubmit="return confirm('¿Eliminar esta lista? Todas las canciones y votaciones también se eliminarán.');">
-                        <input type="hidden" name="eliminar_lista_id" value="<?= $lista->id; ?>">
+                        <input type="hidden" name="eliminar_lista_id" value="<?= intval($lista->id); ?>">
                         <button type="submit" class="button button-link-delete">Eliminar Lista</button>
                     </form>
                 </td>
@@ -74,5 +80,12 @@ $listas = $wpdb->get_results("SELECT * FROM $tabla_listas");
 
 .button-link-delete:hover {
     color: #dc3232;
+}
+
+code {
+    background: #f3f3f3;
+    padding: 3px 6px;
+    border-radius: 3px;
+    display: inline-block;
 }
 </style>
