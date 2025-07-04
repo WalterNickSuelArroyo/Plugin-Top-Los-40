@@ -1,13 +1,12 @@
 <?php
 wp_enqueue_media();
-wp_enqueue_script('jquery-ui-sortable'); // Necesario para arrastrar orden
+wp_enqueue_script('jquery-ui-sortable');
 
 global $wpdb;
 $tabla_canciones = $wpdb->prefix . 'top40_canciones';
 $tabla_listas = $wpdb->prefix . 'top40_listas';
 $tabla_ranking = $wpdb->prefix . 'top40_ranking';
 
-// Validar lista
 if (!isset($_GET['id']) || !is_numeric($_GET['id'])) {
     echo "<div class='error'><p>No se ha especificado una lista válida.</p></div>";
     return;
@@ -31,12 +30,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['titulo'])) {
     ];
 
     if (!empty($_POST['cancion_id'])) {
-        // Actualizar
         $id = intval($_POST['cancion_id']);
         $wpdb->update($tabla_canciones, $data, ['id' => $id]);
         echo "<div class='updated'><p>Canción actualizada correctamente.</p></div>";
     } else {
-        // Insertar nueva con orden al final
         $max_orden = $wpdb->get_var($wpdb->prepare(
             "SELECT MAX(orden) FROM $tabla_canciones WHERE lista_id = %d",
             $lista_id
@@ -81,7 +78,7 @@ if (isset($_GET['editar']) && is_numeric($_GET['editar'])) {
                         value="<?= esc_attr($edit_cancion->titulo ?? '') ?>"></td>
             </tr>
             <tr>
-                <th><label>Autor</label></th>
+                <th><label>Intérprete</label></th>
                 <td><input type="text" name="autor" class="regular-text"
                         value="<?= esc_attr($edit_cancion->autor ?? '') ?>"></td>
             </tr>
@@ -112,17 +109,23 @@ if (isset($_GET['editar']) && is_numeric($_GET['editar'])) {
     <h2>Canciones de esta Lista</h2>
     <?php
     $canciones = $wpdb->get_results(
-        $wpdb->prepare("SELECT * FROM $tabla_canciones WHERE lista_id = %d ORDER BY orden ASC, id ASC", $lista_id)
+        $wpdb->prepare("SELECT * FROM $tabla_canciones WHERE lista_id = %d ORDER BY votos DESC, orden ASC", $lista_id)
     );
 
     if ($canciones):
+        // Agrupar canciones por votos
+        $grupos = [];
+        foreach ($canciones as $c) {
+            $grupos[$c->votos][] = $c;
+        }
+        krsort($grupos);
     ?>
     <table id="sortable-canciones" class="widefat fixed striped">
         <thead>
             <tr>
                 <th></th>
                 <th>Título</th>
-                <th>Autor</th>
+                <th>Intérprete</th>
                 <th>Votos</th>
                 <th>Semanas en Lista</th>
                 <th>Mejor Posición</th>
@@ -130,30 +133,26 @@ if (isset($_GET['editar']) && is_numeric($_GET['editar'])) {
                 <th>Acciones</th>
             </tr>
         </thead>
-        <tbody>
-            <?php foreach ($canciones as $c): ?>
+        <?php foreach ($grupos as $votos => $lista): ?>
+        <tbody data-votos="<?= $votos; ?>">
+            <?php foreach ($lista as $c): ?>
             <?php
-                    // Semanas en lista
-                    $semanas = $wpdb->get_var($wpdb->prepare(
-                        "SELECT COUNT(DISTINCT semana_fecha) FROM $tabla_ranking WHERE lista_id = %d AND cancion_id = %d",
-                        $lista_id,
-                        $c->id
-                    ));
-
-                    // Mejor posición
-                    $mejor = $wpdb->get_var($wpdb->prepare(
-                        "SELECT MIN(posicion) FROM $tabla_ranking WHERE lista_id = %d AND cancion_id = %d",
-                        $lista_id,
-                        $c->id
-                    ));
-
-                    // Posición anterior
-                    $anterior = $wpdb->get_var($wpdb->prepare(
-                        "SELECT posicion FROM $tabla_ranking WHERE lista_id = %d AND cancion_id = %d ORDER BY semana_fecha DESC LIMIT 1",
-                        $lista_id,
-                        $c->id
-                    ));
-                    ?>
+                        $semanas = $wpdb->get_var($wpdb->prepare(
+                            "SELECT COUNT(DISTINCT semana_fecha) FROM $tabla_ranking WHERE lista_id = %d AND cancion_id = %d",
+                            $lista_id,
+                            $c->id
+                        ));
+                        $mejor = $wpdb->get_var($wpdb->prepare(
+                            "SELECT MIN(posicion) FROM $tabla_ranking WHERE lista_id = %d AND cancion_id = %d",
+                            $lista_id,
+                            $c->id
+                        ));
+                        $anterior = $wpdb->get_var($wpdb->prepare(
+                            "SELECT posicion FROM $tabla_ranking WHERE lista_id = %d AND cancion_id = %d ORDER BY semana_fecha DESC LIMIT 1",
+                            $lista_id,
+                            $c->id
+                        ));
+                        ?>
             <tr data-id="<?= $c->id; ?>">
                 <td class="handle" style="cursor:move;">☰</td>
                 <td><?= esc_html($c->titulo); ?></td>
@@ -173,6 +172,7 @@ if (isset($_GET['editar']) && is_numeric($_GET['editar'])) {
             </tr>
             <?php endforeach; ?>
         </tbody>
+        <?php endforeach; ?>
     </table>
     <?php else: ?>
     <p>No hay canciones en esta lista aún.</p>
@@ -181,7 +181,6 @@ if (isset($_GET['editar']) && is_numeric($_GET['editar'])) {
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Selector de imagen
     const btn = document.getElementById('seleccionar_cover');
     const input = document.getElementById('cover_url');
     btn.addEventListener('click', function() {
@@ -202,26 +201,27 @@ document.addEventListener('DOMContentLoaded', function() {
         frame.open();
     });
 
-    // Ordenar canciones drag & drop
-    jQuery("#sortable-canciones tbody").sortable({
-        handle: ".handle",
-        update: function(event, ui) {
-            let orden = [];
-            jQuery("#sortable-canciones tbody tr").each(function(index) {
-                orden.push({
-                    id: jQuery(this).data('id'),
-                    posicion: index
+    jQuery("#sortable-canciones tbody").each(function() {
+        jQuery(this).sortable({
+            handle: ".handle",
+            update: function(event, ui) {
+                let orden = [];
+                jQuery(this).find("tr").each(function(index) {
+                    orden.push({
+                        id: jQuery(this).data('id'),
+                        posicion: index
+                    });
                 });
-            });
-            jQuery.post(ajaxurl, {
-                action: 'top40_guardar_orden',
-                orden: orden,
-                lista_id: <?= $lista_id; ?>,
-                _ajax_nonce: '<?= wp_create_nonce("top40_orden_nonce"); ?>'
-            }, function(response) {
-                console.log('Orden guardado');
-            });
-        }
+                jQuery.post(ajaxurl, {
+                    action: 'top40_guardar_orden',
+                    orden: orden,
+                    lista_id: <?= $lista_id; ?>,
+                    _ajax_nonce: '<?= wp_create_nonce("top40_orden_nonce"); ?>'
+                }, function(response) {
+                    console.log('Orden guardado');
+                });
+            }
+        });
     });
 });
 </script>
