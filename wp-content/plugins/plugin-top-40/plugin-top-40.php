@@ -3,8 +3,13 @@
 Plugin Name: Plugin Top 40
 Plugin URI: www.prueba.com
 Description: Plugin para realizar votaciones y ordenarlos en un top 40
-Version: 0.0.6
+Version: 0.0.7
 */
+
+// Configuración del intervalo de semanas (modo prueba o producción)
+define('TOP40_TEST_MODE', true); // true para modo prueba (3 minutos), false para producción (7 días)
+define('TOP40_TEST_INTERVAL', 180); // 3 minutos en segundos (para modo prueba)
+define('TOP40_PROD_INTERVAL', 604800); // 7 días en segundos (para modo producción)
 
 function Activar()
 {
@@ -30,6 +35,7 @@ function Activar()
             cover_url VARCHAR(255),
             votos INT DEFAULT 0,
             orden INT DEFAULT 0,
+            fecha_creacion DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (lista_id) REFERENCES $tabla_listas(id) ON DELETE CASCADE
         ) $charset_collate;
 
@@ -44,7 +50,7 @@ function Activar()
             id INT AUTO_INCREMENT PRIMARY KEY,
             lista_id INT NOT NULL,
             cancion_id INT NOT NULL,
-            semana_fecha DATE NOT NULL,
+            semana_fecha DATETIME NOT NULL,
             posicion INT NOT NULL,
             FOREIGN KEY (lista_id) REFERENCES $tabla_listas(id) ON DELETE CASCADE,
             FOREIGN KEY (cancion_id) REFERENCES $tabla_canciones(id) ON DELETE CASCADE
@@ -53,12 +59,51 @@ function Activar()
 
     require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
     dbDelta($sql);
+
+    // Programar el evento cron si no existe
+    if (!wp_next_scheduled('top40_actualizar_semanas')) {
+        $interval = TOP40_TEST_MODE ? 'top40_test_interval' : 'weekly';
+        wp_schedule_event(time(), $interval, 'top40_actualizar_semanas');
+    }
 }
 
-function Desactivar() {}
+function Desactivar()
+{
+    // Limpiar el evento cron al desactivar
+    wp_clear_scheduled_hook('top40_actualizar_semanas');
+}
 
 register_activation_hook(__FILE__, 'Activar');
 register_deactivation_hook(__FILE__, 'Desactivar');
+
+// Añadir intervalo personalizado para el cron
+add_filter('cron_schedules', function ($schedules) {
+    if (TOP40_TEST_MODE) {
+        $schedules['top40_test_interval'] = array(
+            'interval' => TOP40_TEST_INTERVAL,
+            'display'  => __('Cada 3 minutos (modo prueba)')
+        );
+    }
+    return $schedules;
+});
+
+// Función para actualizar el contador de semanas
+add_action('top40_actualizar_semanas', 'top40_actualizar_semanas_callback');
+
+function top40_actualizar_semanas_callback()
+{
+    global $wpdb;
+    $tabla_canciones = $wpdb->prefix . 'top40_canciones';
+    $tabla_ranking = $wpdb->prefix . 'top40_ranking';
+
+    // Obtener todas las listas activas
+    $listas = $wpdb->get_results("SELECT id FROM {$wpdb->prefix}top40_listas");
+
+    foreach ($listas as $lista) {
+        // Registrar nueva semana para la lista
+        top40_registrar_semana($lista->id);
+    }
+}
 
 // Admin
 add_action('admin_menu', 'crearMenu');
@@ -438,8 +483,7 @@ function top40_registrar_semana($lista_id)
     );
 
     $pos = 1;
-    $fecha = current_time('mysql');
-    $semana = date('Y-m-d', strtotime($fecha));
+    $semana = current_time('mysql');
 
     foreach ($canciones as $c) {
         $wpdb->insert($tabla_ranking, [
@@ -451,6 +495,18 @@ function top40_registrar_semana($lista_id)
         $pos++;
     }
 
-    echo "<div class='updated'><p>Se registraron las posiciones de esta semana.</p></div>";
+    // Opcional: Mostrar mensaje si se ejecuta manualmente
+    if (current_user_can('manage_options') && isset($_GET['registrar_semana'])) {
+        echo "<div class='updated'><p>Se registraron las posiciones de esta semana.</p></div>";
+    }
 }
-?>
+
+// Función para forzar la actualización manual (opcional)
+function top40_forzar_actualizacion_semanas()
+{
+    if (isset($_GET['top40_force_update']) && current_user_can('manage_options')) {
+        top40_actualizar_semanas_callback();
+        echo "<div class='updated'><p>Se ha forzado la actualización de semanas.</p></div>";
+    }
+}
+add_action('admin_notices', 'top40_forzar_actualizacion_semanas');
