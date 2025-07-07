@@ -221,6 +221,10 @@ function mostrarTop40($atts)
 
     echo "<p>Tu IP detectada: " . $_SERVER['REMOTE_ADDR'] . "</p>";
 
+    // Array para almacenar canciones ya votadas
+    $votadas = [];
+
+
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['votar_id'])) {
         $id = intval($_POST['votar_id']);
         $ya_voto = $wpdb->get_var($wpdb->prepare(
@@ -235,11 +239,13 @@ function mostrarTop40($atts)
                 "UPDATE $tabla_canciones SET votos = votos + 1 WHERE id = %d",
                 $id
             ));
-            echo "<p class='top40-mensaje'>¡Gracias por tu voto!</p>";
+            $votadas[$id] = "¡Gracias por tu voto!";
         } else {
-            echo "<p class='top40-mensaje'>Ya votaste por esta canción.</p>";
+            $votadas[$id] = "Ya votaste por esta canción.";
         }
     }
+
+
 
     // Consulta actualizada siempre
     $canciones = $wpdb->get_results(
@@ -249,9 +255,23 @@ function mostrarTop40($atts)
         )
     );
 
+    foreach ($canciones as $cancion) {
+        if (!isset($votadas[$cancion->id])) {
+            $ya_voto = $wpdb->get_var($wpdb->prepare(
+                "SELECT COUNT(*) FROM $tabla_votos WHERE cancion_id = %d AND ip = %s",
+                $cancion->id,
+                $ip
+            ));
+            if ($ya_voto > 0) {
+                $votadas[$cancion->id] = "Ya votaste por esta canción.";
+            }
+        }
+    }
+
+
     ob_start();
 ?>
-<div class="top40-contenedor">
+<div id="top40-container" class="top40-contenedor">
     <h2>🎵 Top 40 Musical</h2>
     <?php $pos = 1; ?>
     <?php foreach ($canciones as $cancion): ?>
@@ -286,18 +306,26 @@ function mostrarTop40($atts)
             </div>
             <?php endif; ?>
             <div class="top40-info">
-                <div class="top40-titulo">
-                    <?= esc_html($cancion->titulo) ?>
-                    <div class="top40-autor"><?= esc_html($cancion->autor) ?></div>
+                <div class="top40-info-row">
+                    <div class="top40-titulo">
+                        <?= esc_html($cancion->titulo) ?>
+                        <div class="top40-autor"><?= esc_html($cancion->autor) ?></div>
+                    </div>
+                    <div class="top40-voto">
+                        <form method="POST">
+                            <input type="hidden" name="votar_id" value="<?= $cancion->id ?>">
+                            <button type="submit">Votar</button>
+                        </form>
+                        <small><?= $cancion->votos ?> votos</small>
+                    </div>
                 </div>
-                <div class="top40-voto">
-                    <form method="POST">
-                        <input type="hidden" name="votar_id" value="<?= $cancion->id ?>">
-                        <button type="submit">Votar</button>
-                    </form>
-                    <small><?= $cancion->votos ?> votos</small>
-                </div>
+                <?php if (isset($votadas[$cancion->id])): ?>
+                <div class="top40-mensaje"><?= esc_html($votadas[$cancion->id]) ?></div>
+                <?php endif; ?>
             </div>
+
+
+
             <div class="top40-arrow">
                 <svg viewBox="0 0 24 24" fill="none" stroke="#555" stroke-width="2" stroke-linecap="round"
                     stroke-linejoin="round">
@@ -308,18 +336,34 @@ function mostrarTop40($atts)
         <div class="top40-extra" style="display:none;">
             <div class="top40-estadisticas">
                 <div class="top40-estadistica">
+
+                    <div class="top40-estadistica-dato">
+                        <img src="https://los40.com/pf/resources/dist/img/ico-cal-cl24.svg?d=818&mxId=00000000"
+                            alt="Semanas">
+                        <span><?= intval($semanas) ?></span>
+                    </div>
                     <strong>Semanas en listas</strong>
-                    <span><?= intval($semanas) ?></span>
                 </div>
                 <div class="top40-estadistica">
+
+                    <div class="top40-estadistica-dato">
+                        <img src="https://los40.com/pf/resources/dist/img/ico-mpos-cl24.svg?d=818&mxId=00000000"
+                            alt="Mejor posición">
+                        <span><?= $mejor_posicion ? intval($mejor_posicion) : '-' ?></span>
+                    </div>
                     <strong>Mejor posición</strong>
-                    <span><?= $mejor_posicion ? intval($mejor_posicion) : '-' ?></span>
                 </div>
                 <div class="top40-estadistica">
+
+                    <div class="top40-estadistica-dato">
+                        <img src="https://los40.com/pf/resources/dist/img/ico-apos-cl24.svg?d=818&mxId=00000000"
+                            alt="Anterior posición">
+                        <span><?= $anterior_posicion ? intval($anterior_posicion) : '-' ?></span>
+                    </div>
                     <strong>Anterior posición</strong>
-                    <span><?= $anterior_posicion ? intval($anterior_posicion) : '-' ?></span>
                 </div>
             </div>
+
             <?php if ($video_id): ?>
             <div class="top40-video">
                 <iframe src="https://www.youtube.com/embed/<?= esc_attr($video_id) ?>" allowfullscreen></iframe>
