@@ -219,11 +219,8 @@ function mostrarTop40($atts)
 
     $ip = $_SERVER['REMOTE_ADDR'];
 
-    echo "<p>Tu IP detectada: " . $_SERVER['REMOTE_ADDR'] . "</p>";
-
     // Array para almacenar canciones ya votadas
     $votadas = [];
-
 
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['votar_id'])) {
         $id = intval($_POST['votar_id']);
@@ -245,9 +242,6 @@ function mostrarTop40($atts)
         }
     }
 
-
-
-    // Consulta actualizada siempre
     $canciones = $wpdb->get_results(
         $wpdb->prepare(
             "SELECT * FROM $tabla_canciones WHERE lista_id = %d ORDER BY votos DESC LIMIT 40",
@@ -267,7 +261,6 @@ function mostrarTop40($atts)
             }
         }
     }
-
 
     ob_start();
 ?>
@@ -292,14 +285,35 @@ function mostrarTop40($atts)
             ));
 
             $anterior_posicion = $wpdb->get_var($wpdb->prepare(
-                "SELECT posicion FROM $tabla_ranking WHERE lista_id = %d AND cancion_id = %d ORDER BY semana_fecha DESC LIMIT 1",
+                "SELECT posicion FROM $tabla_ranking
+                 WHERE lista_id = %d AND cancion_id = %d
+                 ORDER BY semana_fecha DESC
+                 LIMIT 1 OFFSET 1",
                 $lista_id,
                 $cancion->id
             ));
+
+
+            // Calcular tendencia
+            $tendencia = 'igual';
+            if ($anterior_posicion) {
+                if ($pos < $anterior_posicion) {
+                    $tendencia = 'sube';
+                } elseif ($pos > $anterior_posicion) {
+                    $tendencia = 'baja';
+                }
+            }
             ?>
-    <div class="top40-item">
+    <?php
+            $clase_posicion = $pos === 1 ? 'posicion-1' : '';
+            ?>
+
+    <div id="cancion-<?= $cancion->id ?>" class="top40-item <?= $clase_posicion ?>">
         <div class="top40-header">
-            <div class="top40-posicion">#<?= $pos ?></div>
+            <div class="top40-posicion">
+                #<?= $pos ?>
+                <span class="tendencia <?= $tendencia ?>"><?= ucfirst($tendencia) ?></span>
+            </div>
             <?php if ($cancion->cover_url): ?>
             <div class="top40-cover">
                 <img src="<?= esc_url($cancion->cover_url) ?>">
@@ -312,10 +326,11 @@ function mostrarTop40($atts)
                         <div class="top40-autor"><?= esc_html($cancion->autor) ?></div>
                     </div>
                     <div class="top40-voto">
-                        <form method="POST">
+                        <form method="POST" action="#cancion-<?= $cancion->id ?>">
                             <input type="hidden" name="votar_id" value="<?= $cancion->id ?>">
-                            <button type="submit">Votar</button>
+                            <button type="submit">VOTAR</button>
                         </form>
+
                         <small><?= $cancion->votos ?> votos</small>
                     </div>
                 </div>
@@ -323,9 +338,6 @@ function mostrarTop40($atts)
                 <div class="top40-mensaje"><?= esc_html($votadas[$cancion->id]) ?></div>
                 <?php endif; ?>
             </div>
-
-
-
             <div class="top40-arrow">
                 <svg viewBox="0 0 24 24" fill="none" stroke="#555" stroke-width="2" stroke-linecap="round"
                     stroke-linejoin="round">
@@ -336,7 +348,6 @@ function mostrarTop40($atts)
         <div class="top40-extra" style="display:none;">
             <div class="top40-estadisticas">
                 <div class="top40-estadistica">
-
                     <div class="top40-estadistica-dato">
                         <img src="https://los40.com/pf/resources/dist/img/ico-cal-cl24.svg?d=818&mxId=00000000"
                             alt="Semanas">
@@ -345,7 +356,6 @@ function mostrarTop40($atts)
                     <strong>Semanas en listas</strong>
                 </div>
                 <div class="top40-estadistica">
-
                     <div class="top40-estadistica-dato">
                         <img src="https://los40.com/pf/resources/dist/img/ico-mpos-cl24.svg?d=818&mxId=00000000"
                             alt="Mejor posición">
@@ -354,7 +364,6 @@ function mostrarTop40($atts)
                     <strong>Mejor posición</strong>
                 </div>
                 <div class="top40-estadistica">
-
                     <div class="top40-estadistica-dato">
                         <img src="https://los40.com/pf/resources/dist/img/ico-apos-cl24.svg?d=818&mxId=00000000"
                             alt="Anterior posición">
@@ -363,7 +372,6 @@ function mostrarTop40($atts)
                     <strong>Anterior posición</strong>
                 </div>
             </div>
-
             <?php if ($video_id): ?>
             <div class="top40-video">
                 <iframe src="https://www.youtube.com/embed/<?= esc_attr($video_id) ?>" allowfullscreen></iframe>
@@ -377,6 +385,7 @@ function mostrarTop40($atts)
 <?php
     return ob_get_clean();
 }
+
 
 function top40_registrar_semana($lista_id)
 {
