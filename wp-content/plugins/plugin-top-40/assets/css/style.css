@@ -30,7 +30,6 @@
     padding-right: 10px;
 }
 
-/* Color de fondo para posiciones */
 .top40-posicion {
     background: #212121;
     color: white;
@@ -42,12 +41,10 @@
     position: relative;
 }
 
-/* Fondo rojo solo para el primer puesto */
 .top40-item.posicion-1 .top40-posicion {
     background: #FF4438;
 }
 
-/* Icono de tendencia debajo del número */
 .top40-posicion .tendencia {
     display: block;
     width: 24px;
@@ -59,17 +56,27 @@
     background-position: center;
 }
 
-/* Estados de tendencia con iconos online */
-.top40-posicion .sube {
+/* Esto se mantiene igual */
+.top40-posicion .tendencia.sube {
     background-image: url('https://los40.com/pf/resources/dist/img/ico-l-up.svg?d=820&mxId=00000000');
 }
 
-.top40-posicion .baja {
+.top40-posicion .tendencia.baja {
     background-image: url('https://los40.com/pf/resources/dist/img/ico-l-dwn.svg?d=820&mxId=00000000');
 }
 
-.top40-posicion .igual {
+.top40-posicion .tendencia.igual {
     background-image: url('https://los40.com/pf/resources/dist/img/ico-l-igu.svg?d=820&mxId=00000000');
+}
+
+.top40-posicion .tendencia {
+    display: none;
+}
+
+.top40-posicion .tendencia.sube,
+.top40-posicion .tendencia.baja,
+.top40-posicion .tendencia.igual {
+    display: block;
 }
 
 .top40-cover {
@@ -121,6 +128,16 @@
     font-size: 13px;
 }
 
+.top40-voto button.votado {
+    background: #4CAF50 !important;
+    cursor: default;
+}
+
+.top40-voto button:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
 .top40-arrow {
     cursor: pointer;
     transition: transform 0.2s ease;
@@ -162,7 +179,6 @@
     box-sizing: border-box;
 }
 
-/* Video ocupa 50% */
 .top40-video {
     flex: 1 1 50%;
     min-width: 300px;

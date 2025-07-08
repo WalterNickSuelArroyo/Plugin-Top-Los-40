@@ -249,19 +249,6 @@ function mostrarTop40($atts)
         )
     );
 
-    foreach ($canciones as $cancion) {
-        if (!isset($votadas[$cancion->id])) {
-            $ya_voto = $wpdb->get_var($wpdb->prepare(
-                "SELECT COUNT(*) FROM $tabla_votos WHERE cancion_id = %d AND ip = %s",
-                $cancion->id,
-                $ip
-            ));
-            if ($ya_voto > 0) {
-                $votadas[$cancion->id] = "Ya votaste por esta canción.";
-            }
-        }
-    }
-
     ob_start();
 ?>
 <div id="top40-container" class="top40-contenedor">
@@ -294,13 +281,32 @@ function mostrarTop40($atts)
             ));
 
 
-            // Calcular tendencia
-            $tendencia = 'igual';
-            if ($anterior_posicion) {
-                if ($pos < $anterior_posicion) {
-                    $tendencia = 'sube';
-                } elseif ($pos > $anterior_posicion) {
-                    $tendencia = 'baja';
+            // Calcular tendencia - SOLO mostrar después del primer intervalo
+            $tendencia = '';
+            $mostrar_tendencia = false;
+
+            // Verificar si ha pasado al menos un intervalo para esta lista
+            $primera_semana = $wpdb->get_var($wpdb->prepare(
+                "SELECT MIN(semana_fecha) FROM {$wpdb->prefix}top40_ranking WHERE lista_id = %d",
+                $lista_id
+            ));
+
+            if ($primera_semana) {
+                $intervalo = TOP40_TEST_MODE ? TOP40_TEST_INTERVAL : TOP40_PROD_INTERVAL;
+                $ahora = current_time('timestamp');
+                $primera_semana_timestamp = strtotime($primera_semana);
+
+                if (($ahora - $primera_semana_timestamp) >= $intervalo) {
+                    $mostrar_tendencia = true;
+                    $tendencia = 'igual'; // Valor por defecto
+
+                    if ($anterior_posicion) {
+                        if ($pos < $anterior_posicion) {
+                            $tendencia = 'sube';
+                        } elseif ($pos > $anterior_posicion) {
+                            $tendencia = 'baja';
+                        }
+                    }
                 }
             }
             ?>
@@ -312,7 +318,9 @@ function mostrarTop40($atts)
         <div class="top40-header">
             <div class="top40-posicion">
                 #<?= $pos ?>
+                <?php if ($mostrar_tendencia && $tendencia): ?>
                 <span class="tendencia <?= $tendencia ?>"><?= ucfirst($tendencia) ?></span>
+                <?php endif; ?>
             </div>
             <?php if ($cancion->cover_url): ?>
             <div class="top40-cover">
@@ -328,9 +336,10 @@ function mostrarTop40($atts)
                     <div class="top40-voto">
                         <form method="POST" action="#cancion-<?= $cancion->id ?>">
                             <input type="hidden" name="votar_id" value="<?= $cancion->id ?>">
-                            <button type="submit">VOTAR</button>
+                            <button type="submit" class="<?= isset($votadas[$cancion->id]) ? 'votado' : '' ?>">
+                                <?= isset($votadas[$cancion->id]) ? '✓ Votado' : 'VOTAR' ?>
+                            </button>
                         </form>
-
                         <small><?= $cancion->votos ?> votos</small>
                     </div>
                 </div>
@@ -401,7 +410,7 @@ function top40_registrar_semana($lista_id)
     );
 
     $pos = 1;
-    $semana = current_time('mysql');
+    $semana = current_time('mysql'); // Usa la fecha/hora actual
 
     foreach ($canciones as $c) {
         $wpdb->insert($tabla_ranking, [
@@ -411,11 +420,6 @@ function top40_registrar_semana($lista_id)
             'posicion' => $pos
         ]);
         $pos++;
-    }
-
-    // Opcional: Mostrar mensaje si se ejecuta manualmente
-    if (current_user_can('manage_options') && isset($_GET['registrar_semana'])) {
-        echo "<div class='updated'><p>Se registraron las posiciones de esta semana.</p></div>";
     }
 }
 
@@ -427,4 +431,20 @@ function top40_forzar_actualizacion_semanas()
         echo "<div class='updated'><p>Se ha forzado la actualización de semanas.</p></div>";
     }
 }
+
+// Añade esta función en tu plugin-top-40.php
+function top40_es_primera_semana($lista_id)
+{
+    global $wpdb;
+    $tabla_ranking = $wpdb->prefix . 'top40_ranking';
+
+    $semanas = $wpdb->get_var($wpdb->prepare(
+        "SELECT COUNT(DISTINCT semana_fecha) FROM $tabla_ranking WHERE lista_id = %d",
+        $lista_id
+    ));
+
+    return $semanas <= 1;
+}
+
+
 add_action('admin_notices', 'top40_forzar_actualizacion_semanas');
