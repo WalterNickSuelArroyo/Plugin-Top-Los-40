@@ -7,11 +7,10 @@ Version: 0.0.7
 */
 
 // Configuración del intervalo de semanas (modo prueba o producción)
-define('TOP40_TEST_MODE', true); // true para modo prueba (3 minutos), false para producción (7 días)
-define('TOP40_TEST_INTERVAL', 180); // 3 minutos en segundos (para modo prueba)
-define('TOP40_PROD_INTERVAL', 604800); // 7 días en segundos (para modo producción)
+define('TOP40_TEST_MODE', false);
+define('TOP40_TEST_INTERVAL', 180);
+define('TOP40_PROD_INTERVAL', 604800);
 
-// Función para encolar estilos y scripts
 function top40_enqueue_assets()
 {
     // Solo cargar en páginas que contengan el shortcode
@@ -34,7 +33,6 @@ function top40_enqueue_assets()
 }
 add_action('wp_enqueue_scripts', 'top40_enqueue_assets');
 
-// Función alternativa para cargar siempre los assets (si prefieres esta opción)
 function top40_enqueue_assets_always()
 {
     wp_enqueue_style(
@@ -52,8 +50,6 @@ function top40_enqueue_assets_always()
         true
     );
 }
-// Descomenta la siguiente línea si prefieres cargar siempre los assets
-// add_action('wp_enqueue_scripts', 'top40_enqueue_assets_always');
 
 function Activar()
 {
@@ -104,24 +100,21 @@ function Activar()
     require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
     dbDelta($sql);
 
-    // Programar el evento cron si no existe
     if (!wp_next_scheduled('top40_actualizar_semanas')) {
-        $interval = TOP40_TEST_MODE ? 'top40_test_interval' : 'weekly';
-        wp_schedule_event(time(), $interval, 'top40_actualizar_semanas');
+        wp_schedule_event(time(), 'weekly', 'top40_actualizar_semanas');
     }
 }
 
 function Desactivar()
 {
-    // Limpiar el evento cron al desactivar
     wp_clear_scheduled_hook('top40_actualizar_semanas');
 }
 
 register_activation_hook(__FILE__, 'Activar');
 register_deactivation_hook(__FILE__, 'Desactivar');
 
-// Añadir intervalo personalizado para el cron
 add_filter('cron_schedules', function ($schedules) {
+    // Solo añadir el intervalo de prueba si estamos en modo prueba
     if (TOP40_TEST_MODE) {
         $schedules['top40_test_interval'] = array(
             'interval' => TOP40_TEST_INTERVAL,
@@ -252,7 +245,6 @@ function mostrarTop40($atts)
     ob_start();
 ?>
 <div id="top40-container" class="top40-contenedor">
-    <h2>🎵 Top 40 Musical</h2>
     <?php $pos = 1; ?>
     <?php foreach ($canciones as $cancion): ?>
     <?php
@@ -428,11 +420,12 @@ function top40_forzar_actualizacion_semanas()
 {
     if (isset($_GET['top40_force_update']) && current_user_can('manage_options')) {
         top40_actualizar_semanas_callback();
-        echo "<div class='updated'><p>Se ha forzado la actualización de semanas.</p></div>";
+        add_action('admin_notices', function () {
+            echo "<div class='updated'><p>Se ha forzado la actualización de semanas.</p></div>";
+        });
     }
 }
 
-// Añade esta función en tu plugin-top-40.php
 function top40_es_primera_semana($lista_id)
 {
     global $wpdb;
