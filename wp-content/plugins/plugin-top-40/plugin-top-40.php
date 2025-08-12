@@ -11,6 +11,11 @@ define('TOP40_TEST_MODE', false);
 define('TOP40_TEST_INTERVAL', 180);
 define('TOP40_PROD_INTERVAL', 604800);
 
+// Función auxiliar para obtener propiedades de forma segura
+function top40_get_property($object, $property, $default = null) {
+    return property_exists($object, $property) ? $object->$property : $default;
+}
+
 function top40_enqueue_assets()
 {
     // Solo cargar en páginas que contengan el shortcode
@@ -75,6 +80,9 @@ function Activar()
             cover_url VARCHAR(255),
             votos INT DEFAULT 0,
             orden INT DEFAULT 0,
+            semanas_manual INT DEFAULT NULL,
+            mejor_posicion_manual INT DEFAULT NULL,
+            posicion_anterior_manual INT DEFAULT NULL,
             fecha_creacion DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (lista_id) REFERENCES $tabla_listas(id) ON DELETE CASCADE
         ) $charset_collate;
@@ -100,8 +108,32 @@ function Activar()
     require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
     dbDelta($sql);
 
+    // Función para actualizar tablas existentes de forma segura
+    top40_actualizar_estructura_bd();
+
     if (!wp_next_scheduled('top40_actualizar_semanas')) {
         wp_schedule_event(time(), 'weekly', 'top40_actualizar_semanas');
+    }
+}
+
+function top40_actualizar_estructura_bd()
+{
+    global $wpdb;
+    $tabla_canciones = $wpdb->prefix . 'top40_canciones';
+    
+    // Verificar si las columnas existen antes de agregarlas
+    $columnas_existentes = $wpdb->get_col("DESCRIBE $tabla_canciones");
+    
+    $nuevas_columnas = [
+        'semanas_manual' => 'INT DEFAULT NULL',
+        'mejor_posicion_manual' => 'INT DEFAULT NULL', 
+        'posicion_anterior_manual' => 'INT DEFAULT NULL'
+    ];
+    
+    foreach ($nuevas_columnas as $columna => $definicion) {
+        if (!in_array($columna, $columnas_existentes)) {
+            $wpdb->query("ALTER TABLE $tabla_canciones ADD COLUMN $columna $definicion");
+        }
     }
 }
 
@@ -273,26 +305,42 @@ function mostrarTop40($atts)
             preg_match('/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^\&\?\/]+)/', $cancion->youtube_url, $match);
             $video_id = $match[1] ?? null;
 
-            $semanas = $wpdb->get_var($wpdb->prepare(
-                "SELECT COUNT(*) FROM $tabla_ranking WHERE lista_id = %d AND cancion_id = %d",
-                $lista_id,
-                $cancion->id
-            ));
+            // Usar valores manuales si están disponibles, sino calcular automáticamente
+            $semanas_manual = top40_get_property($cancion, 'semanas_manual');
+            if ($semanas_manual !== null) {
+                $semanas = $semanas_manual;
+            } else {
+                $semanas = $wpdb->get_var($wpdb->prepare(
+                    "SELECT COUNT(*) FROM $tabla_ranking WHERE lista_id = %d AND cancion_id = %d",
+                    $lista_id,
+                    $cancion->id
+                ));
+            }
 
-            $mejor_posicion = $wpdb->get_var($wpdb->prepare(
-                "SELECT MIN(posicion) FROM $tabla_ranking WHERE lista_id = %d AND cancion_id = %d",
-                $lista_id,
-                $cancion->id
-            ));
+            $mejor_posicion_manual = top40_get_property($cancion, 'mejor_posicion_manual');
+            if ($mejor_posicion_manual !== null) {
+                $mejor_posicion = $mejor_posicion_manual;
+            } else {
+                $mejor_posicion = $wpdb->get_var($wpdb->prepare(
+                    "SELECT MIN(posicion) FROM $tabla_ranking WHERE lista_id = %d AND cancion_id = %d",
+                    $lista_id,
+                    $cancion->id
+                ));
+            }
 
-            $anterior_posicion = $wpdb->get_var($wpdb->prepare(
-                "SELECT posicion FROM $tabla_ranking
-                 WHERE lista_id = %d AND cancion_id = %d
-                 ORDER BY semana_fecha DESC
-                 LIMIT 1 OFFSET 1",
-                $lista_id,
-                $cancion->id
-            ));
+            $posicion_anterior_manual = top40_get_property($cancion, 'posicion_anterior_manual');
+            if ($posicion_anterior_manual !== null) {
+                $anterior_posicion = $posicion_anterior_manual;
+            } else {
+                $anterior_posicion = $wpdb->get_var($wpdb->prepare(
+                    "SELECT posicion FROM $tabla_ranking
+                     WHERE lista_id = %d AND cancion_id = %d
+                     ORDER BY semana_fecha DESC
+                     LIMIT 1 OFFSET 1",
+                    $lista_id,
+                    $cancion->id
+                ));
+            }
 
 
             // Calcular tendencia - SOLO mostrar después del primer intervalo
@@ -440,12 +488,7 @@ function top40_registrar_semana($lista_id)
 // Función para forzar la actualización manual (opcional)
 function top40_forzar_actualizacion_semanas()
 {
-    if (isset($_GET['top40_force_update']) && current_user_can('manage_options')) {
-        top40_actualizar_semanas_callback();
-        add_action('admin_notices', function () {
-            echo "<div class='updated'><p>Se ha forzado la actualización de semanas.</p></div>";
-        });
-    }
+    // Función reservada para futuras actualizaciones si es necesario
 }
 
 function top40_es_primera_semana($lista_id)

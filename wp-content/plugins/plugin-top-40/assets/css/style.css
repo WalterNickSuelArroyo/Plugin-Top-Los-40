@@ -393,6 +393,7 @@
     display: inline-flex;
     align-items: center;
     gap: 5px;
+    margin-bottom: 5px;
 }
 
 .wp-admin .top40-votos-form input[type="number"] {
@@ -416,4 +417,16 @@
     background-color: #0073aa;
     border-color: #0073aa;
     color: #fff;
+}
+
+.wp-admin table.widefat td {
+    vertical-align: top;
+    padding: 8px 10px;
+}
+
+.wp-admin .top40-manual-indicator {
+    color: #0073aa;
+    font-size: 10px;
+    margin-left: 5px;
+    cursor: help;
 }

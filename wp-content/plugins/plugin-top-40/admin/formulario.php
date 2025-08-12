@@ -33,6 +33,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['titulo'])) {
     if (!empty($_POST['cancion_id']) && isset($_POST['votos'])) {
         $data['votos'] = intval($_POST['votos']);
     }
+    
+    // Campos manuales adicionales para edición
+    if (!empty($_POST['cancion_id'])) {
+        if (isset($_POST['semanas_manual']) && $_POST['semanas_manual'] !== '') {
+            $data['semanas_manual'] = intval($_POST['semanas_manual']);
+        }
+        if (isset($_POST['mejor_posicion_manual']) && $_POST['mejor_posicion_manual'] !== '') {
+            $data['mejor_posicion_manual'] = intval($_POST['mejor_posicion_manual']);
+        }
+        if (isset($_POST['posicion_anterior_manual']) && $_POST['posicion_anterior_manual'] !== '') {
+            $data['posicion_anterior_manual'] = intval($_POST['posicion_anterior_manual']);
+        }
+    }
 
     if (!empty($_POST['cancion_id'])) {
         $id = intval($_POST['cancion_id']);
@@ -66,6 +79,46 @@ if (isset($_POST['actualizar_votos']) && isset($_POST['cancion_id']) && isset($_
         ['id' => $id, 'lista_id' => $lista_id]
     );
     echo "<div class='updated'><p>Votos actualizados correctamente.</p></div>";
+}
+
+// Actualización rápida de estadísticas
+if (isset($_POST['actualizar_estadisticas']) && isset($_POST['cancion_id'])) {
+    $id = intval($_POST['cancion_id']);
+    $datos_actualizacion = [];
+    
+    if (isset($_POST['nuevas_semanas']) && $_POST['nuevas_semanas'] !== '') {
+        $datos_actualizacion['semanas_manual'] = intval($_POST['nuevas_semanas']);
+    }
+    if (isset($_POST['nueva_mejor_posicion']) && $_POST['nueva_mejor_posicion'] !== '') {
+        $datos_actualizacion['mejor_posicion_manual'] = intval($_POST['nueva_mejor_posicion']);
+    }
+    if (isset($_POST['nueva_posicion_anterior']) && $_POST['nueva_posicion_anterior'] !== '') {
+        $datos_actualizacion['posicion_anterior_manual'] = intval($_POST['nueva_posicion_anterior']);
+    }
+    
+    if (!empty($datos_actualizacion)) {
+        $wpdb->update(
+            $tabla_canciones,
+            $datos_actualizacion,
+            ['id' => $id, 'lista_id' => $lista_id]
+        );
+        echo "<div class='updated'><p>Estadísticas actualizadas correctamente.</p></div>";
+    }
+}
+
+// Limpiar valores manuales (volver a automático)
+if (isset($_POST['limpiar_manuales']) && isset($_POST['cancion_id'])) {
+    $id = intval($_POST['cancion_id']);
+    $wpdb->update(
+        $tabla_canciones,
+        [
+            'semanas_manual' => null,
+            'mejor_posicion_manual' => null,
+            'posicion_anterior_manual' => null
+        ],
+        ['id' => $id, 'lista_id' => $lista_id]
+    );
+    echo "<div class='updated'><p>Valores manuales eliminados. Ahora se calcularán automáticamente.</p></div>";
 }
 
 // Si se está editando
@@ -124,6 +177,36 @@ if (isset($_GET['editar']) && is_numeric($_GET['editar'])) {
                     </p>
                 </td>
             </tr>
+            <tr>
+                <th><label>Semanas en Lista (Manual)</label></th>
+                <td>
+                    <input type="number" name="semanas_manual" min="0" class="regular-text"
+                        value="<?= esc_attr(top40_get_property($edit_cancion, 'semanas_manual', '')) ?>" placeholder="Dejar vacío para cálculo automático">
+                    <p class="description">
+                        Si especificas un valor, se usará este en lugar del cálculo automático basado en el historial.
+                    </p>
+                </td>
+            </tr>
+            <tr>
+                <th><label>Mejor Posición (Manual)</label></th>
+                <td>
+                    <input type="number" name="mejor_posicion_manual" min="1" max="40" class="regular-text"
+                        value="<?= esc_attr(top40_get_property($edit_cancion, 'mejor_posicion_manual', '')) ?>" placeholder="Dejar vacío para cálculo automático">
+                    <p class="description">
+                        Especifica la mejor posición que ha alcanzado esta canción (1-40).
+                    </p>
+                </td>
+            </tr>
+            <tr>
+                <th><label>Posición Anterior (Manual)</label></th>
+                <td>
+                    <input type="number" name="posicion_anterior_manual" min="1" max="40" class="regular-text"
+                        value="<?= esc_attr(top40_get_property($edit_cancion, 'posicion_anterior_manual', '')) ?>" placeholder="Dejar vacío para cálculo automático">
+                    <p class="description">
+                        Especifica la posición de la semana anterior.
+                    </p>
+                </td>
+            </tr>
             <?php endif; ?>
         </table>
         <button type="submit" class="button button-primary">
@@ -167,21 +250,39 @@ if (isset($_GET['editar']) && is_numeric($_GET['editar'])) {
         <tbody data-votos="<?= $votos; ?>">
             <?php foreach ($lista as $c): ?>
             <?php
-                        $semanas = $wpdb->get_var($wpdb->prepare(
-                            "SELECT COUNT(DISTINCT semana_fecha) FROM $tabla_ranking WHERE lista_id = %d AND cancion_id = %d",
-                            $lista_id,
-                            $c->id
-                        ));
-                        $mejor = $wpdb->get_var($wpdb->prepare(
-                            "SELECT MIN(posicion) FROM $tabla_ranking WHERE lista_id = %d AND cancion_id = %d",
-                            $lista_id,
-                            $c->id
-                        ));
-                        $anterior = $wpdb->get_var($wpdb->prepare(
-                            "SELECT posicion FROM $tabla_ranking WHERE lista_id = %d AND cancion_id = %d ORDER BY semana_fecha DESC LIMIT 1",
-                            $lista_id,
-                            $c->id
-                        ));
+                        // Calcular estadísticas (usar valores manuales si están disponibles)
+                        $semanas_manual = top40_get_property($c, 'semanas_manual');
+                        if ($semanas_manual !== null) {
+                            $semanas = $semanas_manual;
+                        } else {
+                            $semanas = $wpdb->get_var($wpdb->prepare(
+                                "SELECT COUNT(DISTINCT semana_fecha) FROM $tabla_ranking WHERE lista_id = %d AND cancion_id = %d",
+                                $lista_id,
+                                $c->id
+                            ));
+                        }
+                        
+                        $mejor_posicion_manual = top40_get_property($c, 'mejor_posicion_manual');
+                        if ($mejor_posicion_manual !== null) {
+                            $mejor = $mejor_posicion_manual;
+                        } else {
+                            $mejor = $wpdb->get_var($wpdb->prepare(
+                                "SELECT MIN(posicion) FROM $tabla_ranking WHERE lista_id = %d AND cancion_id = %d",
+                                $lista_id,
+                                $c->id
+                            ));
+                        }
+                        
+                        $posicion_anterior_manual = top40_get_property($c, 'posicion_anterior_manual');
+                        if ($posicion_anterior_manual !== null) {
+                            $anterior = $posicion_anterior_manual;
+                        } else {
+                            $anterior = $wpdb->get_var($wpdb->prepare(
+                                "SELECT posicion FROM $tabla_ranking WHERE lista_id = %d AND cancion_id = %d ORDER BY semana_fecha DESC LIMIT 1",
+                                $lista_id,
+                                $c->id
+                            ));
+                        }
                         ?>
             <tr data-id="<?= $c->id; ?>">
                 <td class="handle" style="cursor:move;">☰</td>
@@ -194,9 +295,36 @@ if (isset($_GET['editar']) && is_numeric($_GET['editar'])) {
                         <button type="submit" name="actualizar_votos" class="button button-small" title="Actualizar votos">💾</button>
                     </form>
                 </td>
-                <td><?= $semanas ?: 0; ?></td>
-                <td><?= $mejor ?: '-'; ?></td>
-                <td><?= $anterior ?: '-'; ?></td>
+                <td>
+                    <form method="POST" class="top40-votos-form">
+                        <input type="hidden" name="cancion_id" value="<?= $c->id; ?>">
+                        <input type="number" name="nuevas_semanas" value="<?= $semanas_manual ?? $semanas; ?>" min="0" title="Semanas en lista">
+                        <button type="submit" name="actualizar_estadisticas" class="button button-small" title="Actualizar semanas">💾</button>
+                    </form>
+                    <?php if ($semanas_manual !== null): ?>
+                    <small style="color: #0073aa;" title="Valor manual">📝</small>
+                    <?php endif; ?>
+                </td>
+                <td>
+                    <form method="POST" class="top40-votos-form">
+                        <input type="hidden" name="cancion_id" value="<?= $c->id; ?>">
+                        <input type="number" name="nueva_mejor_posicion" value="<?= $mejor_posicion_manual ?? $mejor; ?>" min="1" max="40" title="Mejor posición">
+                        <button type="submit" name="actualizar_estadisticas" class="button button-small" title="Actualizar mejor posición">💾</button>
+                    </form>
+                    <?php if ($mejor_posicion_manual !== null): ?>
+                    <small style="color: #0073aa;" title="Valor manual">📝</small>
+                    <?php endif; ?>
+                </td>
+                <td>
+                    <form method="POST" class="top40-votos-form">
+                        <input type="hidden" name="cancion_id" value="<?= $c->id; ?>">
+                        <input type="number" name="nueva_posicion_anterior" value="<?= $posicion_anterior_manual ?? $anterior; ?>" min="1" max="40" title="Posición anterior">
+                        <button type="submit" name="actualizar_estadisticas" class="button button-small" title="Actualizar posición anterior">💾</button>
+                    </form>
+                    <?php if ($posicion_anterior_manual !== null): ?>
+                    <small style="color: #0073aa;" title="Valor manual">📝</small>
+                    <?php endif; ?>
+                </td>
                 <td>
                     <a href="<?= admin_url('admin.php?page=top40_lista&id=' . $lista_id . '&editar=' . $c->id); ?>"
                         class="button button-small">Editar</a>
@@ -204,6 +332,13 @@ if (isset($_GET['editar']) && is_numeric($_GET['editar'])) {
                         <input type="hidden" name="eliminar_id" value="<?= $c->id; ?>">
                         <button type="submit" class="button button-small">Eliminar</button>
                     </form>
+                    <?php if ($semanas_manual !== null || $mejor_posicion_manual !== null || $posicion_anterior_manual !== null): ?>
+                    <br>
+                    <form method="POST" style="display:inline; margin-top: 5px;" onsubmit="return confirm('¿Limpiar todos los valores manuales y volver al cálculo automático?');">
+                        <input type="hidden" name="cancion_id" value="<?= $c->id; ?>">
+                        <button type="submit" name="limpiar_manuales" class="button button-small" style="background: #ffcc00;" title="Limpiar valores manuales">🔄 Auto</button>
+                    </form>
+                    <?php endif; ?>
                 </td>
             </tr>
             <?php endforeach; ?>
