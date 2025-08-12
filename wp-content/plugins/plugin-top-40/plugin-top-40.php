@@ -1,10 +1,17 @@
 <?php
 /*
 Plugin Name: Plugin Top 40
-Plugin URI: www.prueba.com
+Plugin URI: https://www.prueba.com
 Description: Plugin para realizar votaciones y ordenarlos en un top 40
-Version: 0.0.7
+Version: 1.0.0
+Author: Tu Nombre
+Text Domain: plugin-top-40
 */
+
+// Evitar acceso directo
+if (!defined('ABSPATH')) {
+    exit;
+}
 
 // Configuración del intervalo de semanas (modo prueba o producción)
 define('TOP40_TEST_MODE', false);
@@ -398,8 +405,8 @@ function mostrarTop40($atts)
                     <div class="top40-voto">
                         <form method="POST" action="#cancion-<?= $cancion->id ?>">
                             <input type="hidden" name="votar_id" value="<?= $cancion->id ?>">
-                            <button type="submit" class="<?= isset($votadas[$cancion->id]) ? 'votado' : '' ?>">
-                                <?= isset($votadas[$cancion->id]) ? '✓ Votado' : 'VOTAR' ?>
+                            <button type="submit" class="<?= isset($votadas[$cancion->id]) ? 'VOTADO' : '' ?>">
+                                <?= isset($votadas[$cancion->id]) ? '✓ VOTADO' : 'VOTAR' ?>
                             </button>
                         </form>
                         <small><?= $cancion->votos ?> votos</small>
