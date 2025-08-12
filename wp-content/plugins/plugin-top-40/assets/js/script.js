@@ -7,4 +7,30 @@ document.addEventListener('DOMContentLoaded', function () {
             this.classList.toggle('rotado');
         });
     });
+
+    // Funcionalidad para la administración
+    if (document.body.classList.contains('wp-admin')) {
+        // Confirmar cambios de votos
+        document.querySelectorAll('.top40-votos-form').forEach(form => {
+            form.addEventListener('submit', function(e) {
+                const input = this.querySelector('input[name="nuevos_votos"]');
+                const originalValue = input.defaultValue;
+                const newValue = input.value;
+                
+                if (originalValue !== newValue) {
+                    if (!confirm(`¿Estás seguro de cambiar los votos de ${originalValue} a ${newValue}?`)) {
+                        e.preventDefault();
+                        input.value = originalValue;
+                    }
+                }
+            });
+        });
+
+        // Seleccionar contenido del input al hacer clic
+        document.querySelectorAll('.top40-votos-form input[type="number"]').forEach(input => {
+            input.addEventListener('focus', function() {
+                this.select();
+            });
+        });
+    }
 });

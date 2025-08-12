@@ -28,6 +28,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['titulo'])) {
         'youtube_url' => esc_url_raw($_POST['youtube_url']),
         'cover_url'   => esc_url_raw($_POST['cover_url']),
     ];
+    
+    // Si estamos editando una canción existente y se proporciona el campo votos
+    if (!empty($_POST['cancion_id']) && isset($_POST['votos'])) {
+        $data['votos'] = intval($_POST['votos']);
+    }
 
     if (!empty($_POST['cancion_id'])) {
         $id = intval($_POST['cancion_id']);
@@ -49,6 +54,18 @@ if (isset($_POST['eliminar_id'])) {
     $id = intval($_POST['eliminar_id']);
     $wpdb->delete($tabla_canciones, ['id' => $id]);
     echo "<div class='updated'><p>Canción eliminada correctamente.</p></div>";
+}
+
+// Actualización rápida de votos
+if (isset($_POST['actualizar_votos']) && isset($_POST['cancion_id']) && isset($_POST['nuevos_votos'])) {
+    $id = intval($_POST['cancion_id']);
+    $nuevos_votos = intval($_POST['nuevos_votos']);
+    $wpdb->update(
+        $tabla_canciones,
+        ['votos' => $nuevos_votos],
+        ['id' => $id, 'lista_id' => $lista_id]
+    );
+    echo "<div class='updated'><p>Votos actualizados correctamente.</p></div>";
 }
 
 // Si se está editando
@@ -95,6 +112,19 @@ if (isset($_GET['editar']) && is_numeric($_GET['editar'])) {
                     <button type="button" class="button" id="seleccionar_cover">Seleccionar imagen</button>
                 </td>
             </tr>
+            <?php if ($edit_cancion): ?>
+            <tr>
+                <th><label>Votos</label></th>
+                <td>
+                    <input type="number" name="votos" min="0" class="regular-text"
+                        value="<?= esc_attr($edit_cancion->votos ?? 0) ?>">
+                    <p class="description">
+                        <strong>Nota:</strong> Puedes editar manualmente la cantidad de votos para esta canción. 
+                        Los cambios se reflejarán inmediatamente en el ranking del Top 40.
+                    </p>
+                </td>
+            </tr>
+            <?php endif; ?>
         </table>
         <button type="submit" class="button button-primary">
             <?= $edit_cancion ? 'Actualizar Canción' : 'Guardar Canción' ?>
@@ -157,7 +187,13 @@ if (isset($_GET['editar']) && is_numeric($_GET['editar'])) {
                 <td class="handle" style="cursor:move;">☰</td>
                 <td><?= esc_html($c->titulo); ?></td>
                 <td><?= esc_html($c->autor); ?></td>
-                <td><?= $c->votos; ?></td>
+                <td>
+                    <form method="POST" class="top40-votos-form">
+                        <input type="hidden" name="cancion_id" value="<?= $c->id; ?>">
+                        <input type="number" name="nuevos_votos" value="<?= $c->votos; ?>" min="0">
+                        <button type="submit" name="actualizar_votos" class="button button-small" title="Actualizar votos">💾</button>
+                    </form>
+                </td>
                 <td><?= $semanas ?: 0; ?></td>
                 <td><?= $mejor ?: '-'; ?></td>
                 <td><?= $anterior ?: '-'; ?></td>

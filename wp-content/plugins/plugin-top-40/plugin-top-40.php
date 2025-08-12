@@ -145,6 +145,28 @@ function top40_actualizar_semanas_callback()
 // Admin
 add_action('admin_menu', 'crearMenu');
 
+// Cargar estilos CSS en la administración
+function top40_admin_enqueue_styles($hook) {
+    // Solo cargar en las páginas del plugin
+    if (strpos($hook, 'top40') !== false) {
+        wp_enqueue_style(
+            'top40-admin-style',
+            plugin_dir_url(__FILE__) . 'assets/css/style.css',
+            array(),
+            '0.0.7'
+        );
+        
+        wp_enqueue_script(
+            'top40-admin-script',
+            plugin_dir_url(__FILE__) . 'assets/js/script.js',
+            array(),
+            '0.0.7',
+            true
+        );
+    }
+}
+add_action('admin_enqueue_scripts', 'top40_admin_enqueue_styles');
+
 add_action('wp_ajax_top40_guardar_orden', function () {
     check_ajax_referer('top40_orden_nonce');
     global $wpdb;
