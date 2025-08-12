@@ -30,19 +30,21 @@
 
 .top40-header {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
 }
 
 .top40-posicion {
     background: #212121;
     color: white;
     font-weight: bold;
-    padding: 10px 0;
-    font-size: 22px;
-    width: 100%;
+    padding: 70px 15px;
+    font-size: 18px;
     text-align: center;
     border-radius: 4px;
-    margin-bottom: 15px;
+    min-width: 70px;
+    flex-shrink: 0;
     order: 1;
 }
 
@@ -52,9 +54,9 @@
 
 .top40-posicion .tendencia {
     display: inline-block;
-    width: 24px;
-    height: 24px;
-    margin-left: 10px;
+    width: 20px;
+    height: 20px;
+    margin-left: 8px;
     vertical-align: middle;
     text-indent: -9999px;
     background-size: contain;
@@ -80,35 +82,36 @@
 }
 
 .top40-info {
-    width: 100%;
+    flex: 1;
     order: 2;
 }
 
 .top40-info-row {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
 }
 
 .top40-titulo {
-    font-size: 20px;
+    font-size: 18px;
     font-weight: 700;
-    text-align: center;
-    order: 2;
+    text-align: left;
+    order: 1;
+    line-height: 1.3;
 }
 
 .top40-autor {
-    font-size: 16px;
+    font-size: 14px;
     color: #555;
     font-weight: normal;
-    text-align: center;
-    order: 3;
+    text-align: left;
+    order: 2;
+    line-height: 1.2;
 }
 
 .top40-voto {
-    order: 4;
-    margin-top: 15px;
-    text-align: center;
+    order: 3;
+    text-align: left;
 }
 
 .top40-voto form {
@@ -116,23 +119,23 @@
 }
 
 .top40-voto small {
-    display: block !important;
-    font-size: 14px;
+    display: none !important;
+    font-size: 12px;
     color: #666;
-    margin-top: 5px;
+    margin-top: 4px;
 }
 
 .top40-voto button {
     background: #FF4438;
     color: white;
-    padding: 10px 25px;
+    padding: 8px 20px;
     border: none;
     border-radius: 4px;
     cursor: pointer;
     font-weight: 700;
-    font-size: 14px;
-    width: 100%;
-    max-width: 200px;
+    font-size: 12px;
+    width: auto;
+    max-width: none;
 }
 
 .top40-voto button.votado {
@@ -151,17 +154,18 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    margin: 15px auto 0;
+    margin: 0;
     background: aliceblue;
-    border-radius: 30px;
-    width: 40px;
-    height: 40px;
-    order: 5;
+    border-radius: 50%;
+    width: 35px;
+    height: 35px;
+    order: 3;
+    flex-shrink: 0;
 }
 
 .top40-arrow svg {
-    width: 20px;
-    height: 20px;
+    width: 18px;
+    height: 18px;
     transition: transform 0.3s ease;
 }
 
@@ -179,9 +183,9 @@
 
 .top40-estadisticas {
     display: flex;
-    flex-wrap: wrap;
-    gap: 15px;
-    margin-bottom: 20px;
+    flex-wrap: nowrap;
+    gap: 10px;
+    margin-bottom: 15px;
     justify-content: space-between;
 }
 
@@ -192,7 +196,7 @@
 
 .top40-video iframe {
     width: 100%;
-    height: 220px;
+    height: 200px;
     border: none;
     border-radius: 5px;
     max-width: 100%;
@@ -200,55 +204,94 @@
 
 .top40-estadistica {
     flex: 1;
-    min-width: 120px;
+    min-width: 0;
     text-align: center;
+    font-size: 12px;
 }
 
 .top40-estadistica strong {
     display: block;
-    font-size: 13px;
+    font-size: 11px;
     color: #333;
     font-weight: normal;
+    margin-top: 3px;
+    line-height: 1.2;
 }
 
 .top40-estadistica svg {
-    width: 24px;
-    height: 24px;
-    margin: 5px auto;
+    width: 18px;
+    height: 18px;
+    margin: 3px auto;
     display: block;
     fill: #666;
 }
 
 .top40-estadistica span {
     display: block;
-    font-size: 16px;
+    font-size: 14px;
     font-weight: bold;
     color: #222;
 }
 
 .top40-estadistica img.top40-icono {
-    width: 32px;
-    height: 32px;
-    margin: 6px auto;
+    width: 18px;
+    height: 18px;
+    margin: 3px auto;
     display: block;
 }
 
 .top40-estadistica-dato {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 4px;
     white-space: nowrap;
+    justify-content: center;
 }
 
 .top40-estadistica-dato img {
-    width: 25px;
-    height: 25px;
+    width: 18px;
+    height: 18px;
 }
 
 .top40-estadistica-dato span {
-    font-size: 16px;
+    font-size: 14px;
     font-weight: bold;
     color: #222;
+}
+
+@media (min-width: 344px) {
+    .top40-item {
+        padding-right: 5px;
+    }
+
+    .top40-mensaje {
+        width: 128%;
+        font-size: 13px;
+    }
+}
+
+@media (min-width: 360px) {
+    .top40-mensaje {
+        width: 125%
+    }
+
+    .top40-titulo {
+        width: 120%;
+    }
+
+    .top40-header {
+        padding-right: 10px;
+    }
+}
+
+@media (min-width: 375px) {
+    .top40-mensaje {
+        width: 112%
+    }
+
+    .top40-item {
+        padding-right: 10px;
+    }
 }
 
 /* Media Queries para tablets y desktop */
@@ -256,20 +299,20 @@
     .top40-header {
         flex-direction: row;
         align-items: center;
-        padding-right: 10px;
+        gap: 0px;
     }
 
     .top40-posicion {
         width: 90px;
-        padding: 30px 0;
-        margin-bottom: 0;
+        padding: 45px 0;
+        font-size: 22px;
         order: 1;
     }
 
     .top40-cover {
         display: flex;
         width: 120px;
-        height: 120px;
+        height: 123px;
         order: 2;
     }
 
@@ -330,11 +373,27 @@
         flex: 1;
         margin-bottom: 0;
         padding-right: 20px;
+        flex-direction: row;
+        gap: 15px;
+    }
+
+    .top40-estadistica {
+        flex: 1;
+        text-align: center;
+        min-width: 0;
     }
 
     .top40-video {
         flex: 1;
         padding-left: 20px;
+    }
+
+    .top40-item {
+        padding-right: 0px;
+    }
+
+    .top40-mensaje{
+        width: 100%;
     }
 }
 
@@ -358,6 +417,12 @@
         color: #666;
         margin-top: 5px;
         text-align: center;
+    }
+}
+
+@media (min-width: 1024px) {
+    .top40-cover {
+        height: 233px;
     }
 }
 
